@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Cotizador - NEMOC Ingeniería y Tecnología</title>
+  <!-- jsPDF y AutoTable desde CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.4/dist/jspdf.plugin.autotable.min.js"></script>
+  <style>
+    :root{
+      --azul:#003366; --azul-2:#0055aa; --gris:#f5f7fb; --borde:#d9e0ea;
+    }
+    *{box-sizing:border-box}
+    body{font-family:Arial,Helvetica,sans-serif;margin:24px;background:#fff;color:#1a1a1a}
+    h1{font-size:22px;color:var(--azul);margin:0 0 16px}
+    .card{background:#fff;border:1px solid var(--borde);border-radius:12px;box-shadow:0 4px 16px rgba(0,0,0,.04);padding:16px;margin-bottom:16px}
+    .row{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
+    label{font-size:12px;color:#444}
+    input,textarea,select{width:100%;padding:10px;border:1px solid var(--borde);border-radius:10px;background:#fff}
+    textarea{min-height:84px;resize:vertical}
+    table{width:100%;border-collapse:collapse;background:#fff}
+    thead th{background:var(--azul);color:#fff;padding:10px;border:1px solid var(--borde);font-weight:600}
+    tbody td{padding:8px;border:1px solid var(--borde);text-align:center}
+    tfoot td{padding:8px;border:1px solid var(--borde);font-weight:700}
+    .btn{display:inline-flex;align-items:center;gap:8px;padding:10px 14px;border:none;border-radius:10px;cursor:pointer;font-weight:600}
+    .btn-primary{background:var(--azul);color:#fff}
+    .btn-primary:hover{background:var(--azul-2)}
+    .btn-danger{background:#b42318;color:#fff}
+    .pill{padding:6px 10px;border-radius:999px;background:var(--gris);display:inline-block}
+    .right{display:flex;gap:8px;justify-content:flex-end}
+    .muted{font-size:12px;color:#666}
+  </style>
+</head>
+<body>
+  <h1>Generador de Cotizaciones · NEMOC</h1>
+
+  <div class="card">
+    <div class="row">
+      <div>
+        <label>Cliente</label>
+        <input id="cliente" placeholder="Nombre o empresa" />
+      </div>
+      <div>
+        <label>Correo del cliente</label>
+        <input id="correo" type="email" placeholder="cliente@correo.com" />
+      </div>
+      <div>
+        <label>Fecha</label>
+        <input id="fecha" type="date" />
+      </div>
+      <div>
+        <label>Número de cotización (opcional)</label>
+        <input id="numero" placeholder="COT-001" />
+      </div>
+    </div>
+    <div class="row" style="margin-top:12px">
+      <div>
+        <label>Subir logo (opcional) — evita errores de CORS</label>
+        <input id="logoInput" type="file" accept="image/*" />
+        <div class="muted" style="margin-top:6px">Si no subes logo, el PDF se genera igual.</div>
+      </div>
+      <div>
+        <label>IVA (%)</label>
+        <input id="iva" type="number" value="0" />
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="row">
+      <div>
+        <label>Descripción</label>
+        <input id="desc" placeholder="Servicio / Producto" />
+      </div>
+      <div>
+        <label>Cantidad</label>
+        <input id="cant" type="number" min="1" value="1" />
+      </div>
+      <div>
+        <label>Valor unitario (COP)</label>
+        <input id="unit" type="number" min="0" value="0" />
+      </div>
+      <div style="display:flex;align-items:end">
+        <button class="btn btn-primary" id="addItem">➕ Agregar ítem</button>
+      </div>
+    </div>
+
+    <div style="margin-top:12px;overflow:auto">
+      <table id="tabla">
+        <thead>
+          <tr>
+            <th style="text-align:left">Descripción</th>
+            <th>Cantidad</th>
+            <th>Valor unitario</th>
+            <th>Total</th>
+            <th>Acción</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+        <tfoot>
+          <tr>
+            <td colspan="3" style="text-align:right">Subtotal</td>
+            <td id="subCell" style="text-align:center">$0</td>
+            <td></td>
+          </tr>
+          <tr>
+            <td colspan="3" style="text-align:right">IVA</td>
+            <td id="ivaCell" style="text-align:center">$0</td>
+            <td></td>
+          </tr>
+          <tr>
+            <td colspan="3" style="text-align:right">Total</td>
+            <td id="totCell" style="text-align:center"><span class="pill" id="totalGeneral">$0</span></td>
+            <td></td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  </div>
+
+  <div class="card">
+    <label>Condiciones comerciales</label>
+    <textarea id="condiciones" placeholder="Tiempo de entrega, forma de pago, validez de la oferta, garantías, alcances y exclusiones..."></textarea>
+  </div>
+
+  <div class="right">
+    <button class="btn btn-primary" id="btnPDF">📄 Generar PDF</button>
+  </div>
+
+  <script>
+    // Estado
+    const items = [];
+    let logoDataUrl = null;
+    const fmt = new Intl.NumberFormat('es-CO', { style:'currency', currency:'COP', maximumFractionDigits:0 });
+
+    // Utilidades
+    function calc(){
+      const subtotal = items.reduce((s,i)=> s + i.cantidad * i.unitario, 0);
+      const ivaPct = Number(document.getElementById('iva').value)||0;
+      const ivaVal = subtotal * (ivaPct/100);
+      const total = subtotal + ivaVal;
+      return { subtotal, ivaVal, total };
+    }
+    function render(){
+      const tbody = document.querySelector('#tabla tbody');
+      tbody.innerHTML = '';
+      items.forEach((it, idx)=>{
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td style="text-align:left">${it.desc}</td>
+          <td>${it.cantidad}</td>
+          <td>${fmt.format(it.unitario)}</td>
+          <td>${fmt.format(it.cantidad*it.unitario)}</td>
+          <td><button class='btn btn-danger' data-del='${idx}'>✖</button></td>
+        `;
+        tbody.appendChild(tr);
+      });
+      const {subtotal, ivaVal, total} = calc();
+      document.getElementById('subCell').textContent = fmt.format(subtotal);
+      document.getElementById('ivaCell').textContent = fmt.format(ivaVal);
+      document.getElementById('totalGeneral').textContent = fmt.format(total);
+    }
+
+    // Eventos
+    document.getElementById('addItem').addEventListener('click', ()=>{
+      const desc = document.getElementById('desc').value.trim();
+      const cantidad = Number(document.getElementById('cant').value)||0;
+      const unitario = Number(document.getElementById('unit').value)||0;
+      if(!desc || cantidad<=0 || unitario<0){ alert('Verifica la descripción, cantidad y valor.'); return; }
+      items.push({desc, cantidad, unitario});
+      document.getElementById('desc').value='';
+      document.getElementById('cant').value=1;
+      document.getElementById('unit').value=0;
+      render();
+    });
+
+    document.querySelector('#tabla tbody').addEventListener('click', (e)=>{
+      const btn = e.target.closest('button[data-del]');
+      if(!btn) return;
+      const idx = Number(btn.getAttribute('data-del'));
+      items.splice(idx,1);
+      render();
+    });
+
+    document.getElementById('iva').addEventListener('input', render);
+
+    // Carga de logo segura (sin CORS) mediante FileReader
+    document.getElementById('logoInput').addEventListener('change', (ev)=>{
+      const file = ev.target.files?.[0];
+      if(!file) { logoDataUrl = null; return; }
+      const reader = new FileReader();
+      reader.onload = ()=>{ logoDataUrl = reader.result; };
+      reader.readAsDataURL(file);
+    });
+
+    // Generación de PDF robusta
+    document.getElementById('btnPDF').addEventListener('click', async ()=>{
+      try{
+        const { jsPDF } = window.jspdf || {};
+        if(!jsPDF){ alert('No cargó jsPDF. Revisa tu conexión a Internet.'); return; }
+        const doc = new jsPDF({ unit:'mm', format:'a4' });
+        if(typeof doc.autoTable !== 'function'){
+          alert('No cargó AutoTable. Revisa tu conexión a Internet.');
+          return;
+        }
+
+        const pageW = doc.internal.pageSize.getWidth();
+        // Encabezado azul
+        doc.setFillColor(0,51,102);
+        doc.rect(0,0,pageW,30,'F');
+        doc.setTextColor(255,255,255);
+        doc.setFontSize(16);
+        doc.text('NEMOC MULTISERVICIOS INGENIERÍA Y TECNOLOGÍA', 12, 18);
+
+        // Logo (si el usuario lo cargó)
+        if(logoDataUrl){
+          try{ doc.addImage(logoDataUrl, 'PNG', pageW-52, 6, 40, 18); }catch(err){ /* ignorar error de imagen */ }
+        }
+
+        // Datos empresa
+        doc.setTextColor(0,0,0);
+        doc.setFontSize(11);
+        doc.text('Santa Marta - Colombia', 12, 40);
+        doc.text('Tel: +57 318 562 1097', 12, 46);
+        doc.text('Correo: nemoca1004@gmail.com', 12, 52);
+
+        // Datos cliente
+        const cliente = (document.getElementById('cliente').value||'').trim();
+        const correo = (document.getElementById('correo').value||'').trim();
+        const fecha = document.getElementById('fecha').value || new Date().toISOString().slice(0,10);
+        const numero = (document.getElementById('numero').value||'').trim();
+       
+
+        doc.setFontSize(12);
+        let y = 64;
+        if(numero) { doc.text(`Cotización: ${numero}`, 12, y); y+=6; }
+        doc.text(`Cliente: ${cliente||'-'}`, 12, y); y+=6;
+        doc.text(`Correo: ${correo||'-'}`, 12, y); y+=6;
+        doc.text(`Fecha: ${fecha}`, 12, y); y+=6;
+
+        // Tabla de ítems
+        const body = items.length ? items.map(i=>[
+          i.desc,
+          i.cantidad,
+          fmt.format(i.unitario),
+          fmt.format(i.cantidad*i.unitario)
+        ]) : [["-", 0, fmt.format(0), fmt.format(0)]];
+
+        doc.autoTable({
+          head: [["Descripción","Cantidad","Valor unitario","Total"]],
+          body,
+          startY: y + 4,
+          theme: 'grid',
+          headStyles: { fillColor:[0,51,102], textColor:255 },
+          styles: { fontSize:10, cellPadding:3, halign:'center' },
+          columnStyles: { 0:{ halign:'left' } }
+        });
+
+        const pos = doc.lastAutoTable && doc.lastAutoTable.finalY ? doc.lastAutoTable.finalY : y + 24;
+        const {subtotal, ivaVal, total} = calc();
+        let blockY = pos + 8;
+
+        // Totales
+        doc.setFontSize(12);
+        doc.setTextColor(0,51,102);
+        doc.text(`Subtotal: ${fmt.format(subtotal)}`, 12, blockY); blockY += 6;
+        doc.text(`IVA (${Number(document.getElementById('iva').value||0)}%): ${fmt.format(ivaVal)}`, 12, blockY); blockY += 6;
+        doc.setFontSize(14);
+        doc.text(`TOTAL: ${fmt.format(total)}`, 12, blockY);
+
+        // Condiciones
+        const condiciones = (document.getElementById('condiciones').value||'').trim();
+        if(condiciones){
+          blockY += 10;
+          doc.setFontSize(11); doc.setTextColor(0,0,0);
+          doc.text('Condiciones comerciales:', 12, blockY);
+          blockY += 6;
+          // Ajuste de texto multi-línea
+          const wrapped = doc.splitTextToSize(condiciones, pageW-24);
+          doc.text(wrapped, 12, blockY);
+          blockY += wrapped.length * 5;
+        }
+
+        // Pie de página
+        doc.setFontSize(9); doc.setTextColor(100);
+        doc.text('NEMOC Ingeniería y Tecnología — Soluciones Multiservicios', 12, 290);
+        doc.text('Página 1 de 1', pageW-28, 290);
+
+        doc.save(`cotizacion_${numero || new Date().toISOString().slice(0,10)}.pdf`);
+      }catch(err){
+        console.error(err);
+        alert('Ocurrió un error generando el PDF. Revisa la consola del navegador (F12 > Console).');
+      }
+    });
+
+    // Precargar fecha hoy
+    document.getElementById('fecha').value = new Date().toISOString().slice(0,10);
+  </script>
+</body>
+</html>
