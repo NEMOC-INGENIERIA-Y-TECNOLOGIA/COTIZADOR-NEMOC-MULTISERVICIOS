@@ -2,175 +2,153 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Cotizador - NEMOC Ingeniería y Tecnología</title>
+  <title>Cotizador NEMOC</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
   <style>
-    body { font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }
-    .container { background: #fff; padding: 20px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); max-width: 900px; margin: auto; }
-    h1 { color: #003366; text-align: center; }
-    label { font-weight: bold; display: block; margin-top: 10px; }
-    input, textarea { width: 100%; padding: 8px; margin-top: 5px; border-radius: 6px; border: 1px solid #ccc; }
-    table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-    th, td { border: 1px solid #ccc; padding: 8px; text-align: center; }
-    th { background: #003366; color: #fff; }
-    .btn { margin-top: 15px; padding: 12px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; }
-    .btn-add { background: #28a745; color: #fff; }
-    .btn-pdf { background: #003366; color: #fff; }
-    footer { text-align: center; margin-top: 20px; font-size: 14px; color: #555; }
-    .logo { width: 150px; margin-bottom: 10px; }
+    body { font-family: Arial, sans-serif; margin: 20px; }
+    h1 { color: #005baa; }
+    label { display:block; margin-top:10px; font-weight: bold; }
+    input, textarea { width:100%; padding:5px; margin-top:4px; }
+    table { width:100%; border-collapse: collapse; margin-top:20px; }
+    table, th, td { border:1px solid #ccc; }
+    th, td { padding:8px; text-align:center; }
+    .btn { margin-top:20px; padding:10px 15px; background:#005baa; color:#fff; border:none; cursor:pointer; border-radius:5px; }
   </style>
 </head>
 <body>
-  <div class="container">
-    <div style="text-align:center">
-      <img src="logo.png" alt="Logo NEMOC" class="logo">
-      <h1>Cotización</h1>
-    </div>
+  <h1>Cotizador - NEMOC Multiservicios Ingeniería y Tecnología</h1>
 
-    <h3>Datos del Cliente</h3>
-    <label>Nombre:</label><input type="text" id="nombreCliente">
-    <label>Empresa:</label><input type="text" id="empresaCliente">
-    <label>NIT:</label><input type="text" id="nitCliente">
-    <label>Teléfono:</label><input type="text" id="telefonoCliente">
-    <label>Correo:</label><input type="email" id="correoCliente">
-    <label>Dirección:</label><input type="text" id="direccionCliente">
+  <h3>Datos del Cliente</h3>
+  <label>Nombre:</label><input id="clienteNombre">
+  <label>Empresa:</label><input id="clienteEmpresa">
+  <label>NIT:</label><input id="clienteNIT">
+  <label>Teléfono:</label><input id="clienteTelefono">
+  <label>Correo:</label><input id="clienteCorreo">
+  <label>Dirección:</label><input id="clienteDireccion">
 
-    <h3>Ítems</h3>
-    <table id="tablaItems">
-      <thead>
-        <tr>
-          <th>Cantidad</th>
-          <th>Descripción</th>
-          <th>Valor Unitario</th>
-          <th>Subtotal</th>
-        </tr>
-      </thead>
-      <tbody></tbody>
-    </table>
-    <button class="btn btn-add" onclick="agregarItem()">+ Agregar Ítem</button>
+  <h3>Items de Cotización</h3>
+  <table id="tablaItems">
+    <thead>
+      <tr><th>Cant.</th><th>Descripción</th><th>V. Unitario</th><th>Subtotal</th><th>Acción</th></tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+  <button onclick="agregarItem()">➕ Agregar Ítem</button>
 
-    <h3>Condiciones</h3>
-    <textarea id="condiciones" rows="4">- Los precios incluyen IVA. 
-- Validez de la oferta: 30 días.
-- Tiempo de entrega: según disponibilidad.</textarea>
+  <h3>Condiciones Comerciales</h3>
+  <textarea id="condiciones" rows="4">1. Precios en COP.
+2. IVA no incluido.
+3. Tiempo de entrega: 15 días hábiles.
+4. Garantía: 12 meses.</textarea>
 
-    <h3>IVA (%)</h3>
-    <input type="number" id="iva" value="19">
+  <h3>Impuestos</h3>
+  <label>IVA (%):</label>
+  <input id="iva" type="number" value="19">
 
-    <button class="btn btn-pdf" onclick="generarPDF()">Generar PDF</button>
-
-    <footer>
-      <p><b>NEMOC MULTISERVICIOS INGENIERÍA Y TECNOLOGÍA</b></p>
-      <p>Tel: 3185621097 | Email: nemoca1004@gmail.com</p>
-      <p>Dirección: Calle 45 # 35-36, Barrio Líbano, Santa Marta</p>
-    </footer>
-  </div>
+  <button class="btn" onclick="generarPDF()">Generar PDF</button>
 
 <script>
-  function agregarItem() {
-    const tabla = document.getElementById("tablaItems").getElementsByTagName("tbody")[0];
-    const fila = tabla.insertRow();
-    fila.innerHTML = `
-      <td><input type="number" value="1" min="1" onchange="actualizarSubtotal(this)"></td>
-      <td><input type="text" placeholder="Descripción"></td>
-      <td><input type="number" value="0" min="0" onchange="actualizarSubtotal(this)"></td>
-      <td class="subtotal">0</td>
-    `;
+let { jsPDF } = window.jspdf;
+
+// Logo en Base64 (tu imagen ya convertida a base64)
+const logoBase64 = ""; // 👉 aquí debo pegar tu logo convertido a base64
+
+function agregarItem() {
+  let tabla = document.getElementById("tablaItems").querySelector("tbody");
+  let fila = tabla.insertRow();
+  fila.innerHTML = `
+    <td><input type="number" value="1" onchange="actualizarSubtotal(this)"></td>
+    <td><input type="text" placeholder="Descripción"></td>
+    <td><input type="number" value="0" onchange="actualizarSubtotal(this)"></td>
+    <td class="subtotal">0</td>
+    <td><button onclick="eliminarFila(this)">❌</button></td>
+  `;
+}
+
+function eliminarFila(btn) {
+  btn.parentElement.parentElement.remove();
+}
+
+function actualizarSubtotal(input) {
+  let fila = input.parentElement.parentElement;
+  let cantidad = parseFloat(fila.cells[0].querySelector("input").value) || 0;
+  let valor = parseFloat(fila.cells[2].querySelector("input").value) || 0;
+  fila.querySelector(".subtotal").innerText = (cantidad * valor).toFixed(2);
+}
+
+function generarPDF() {
+  let doc = new jsPDF();
+
+  // Logo
+  if (logoBase64) {
+    doc.addImage(logoBase64, "PNG", 10, 10, 40, 20);
   }
 
-  function actualizarSubtotal(input) {
-    const fila = input.parentElement.parentElement;
-    const cantidad = fila.cells[0].children[0].value;
-    const valor = fila.cells[2].children[0].value;
-    fila.cells[3].innerText = (cantidad * valor).toFixed(2);
+  doc.setFontSize(12);
+  doc.text("NEMOC Multiservicios Ingeniería y Tecnología", 60, 20);
+  doc.text("Tel: 3185621097 | Email: nemoca1004@gmail.com", 60, 27);
+  doc.text("Calle 45 #35-36 Barrio Líbano, Santa Marta", 60, 34);
+
+  doc.setFontSize(14);
+  doc.text("Cotización", 105, 50, null, null, "center");
+
+  // Datos cliente
+  let cliente = [
+    ["Nombre:", document.getElementById("clienteNombre").value],
+    ["Empresa:", document.getElementById("clienteEmpresa").value],
+    ["NIT:", document.getElementById("clienteNIT").value],
+    ["Teléfono:", document.getElementById("clienteTelefono").value],
+    ["Correo:", document.getElementById("clienteCorreo").value],
+    ["Dirección:", document.getElementById("clienteDireccion").value]
+  ];
+  doc.autoTable({ startY: 60, body: cliente, theme:"plain" });
+
+  // Items
+  let items = [];
+  let filas = document.getElementById("tablaItems").querySelector("tbody").rows;
+  let subtotal = 0;
+  for (let f of filas) {
+    let cant = f.cells[0].querySelector("input").value;
+    let desc = f.cells[1].querySelector("input").value;
+    let unit = f.cells[2].querySelector("input").value;
+    let sub = parseFloat(f.cells[3].innerText) || 0;
+    subtotal += sub;
+    items.push([cant, desc, unit, sub.toFixed(2)]);
   }
 
-  async function generarPDF() {
-    const { jsPDF } = window.jspdf;
-    const doc = new jsPDF();
+  doc.autoTable({
+    head:[["Cant.","Descripción","V. Unitario","Subtotal"]],
+    body: items,
+    startY: doc.lastAutoTable.finalY + 10
+  });
 
-    // Logo
-    const img = document.querySelector(".logo").src;
-    try {
-      const response = await fetch(img);
-      const blob = await response.blob();
-      const reader = new FileReader();
-      reader.readAsDataURL(blob);
-      reader.onloadend = function () {
-        doc.addImage(reader.result, "PNG", 10, 10, 40, 20);
-        continuarPDF(doc);
-      };
-    } catch (e) {
-      continuarPDF(doc);
-    }
-  }
+  // Totales
+  let iva = parseFloat(document.getElementById("iva").value) || 0;
+  let valorIVA = subtotal * iva / 100;
+  let total = subtotal + valorIVA;
 
-  function continuarPDF(doc) {
-    let y = 40;
-    doc.setFontSize(16);
-    doc.text("Cotización - NEMOC Multiservicios Ingeniería y Tecnología", 60, y);
-    y += 10;
+  doc.autoTable({
+    body:[
+      ["Subtotal", subtotal.toFixed(2)],
+      ["IVA ("+iva+"%)", valorIVA.toFixed(2)],
+      ["TOTAL", total.toFixed(2)]
+    ],
+    startY: doc.lastAutoTable.finalY + 5,
+    theme:"plain"
+  });
 
-    // Datos del cliente
-    doc.setFontSize(12);
-    doc.text(`Cliente: ${document.getElementById("nombreCliente").value}`, 10, y); y+=7;
-    doc.text(`Empresa: ${document.getElementById("empresaCliente").value}`, 10, y); y+=7;
-    doc.text(`NIT: ${document.getElementById("nitCliente").value}`, 10, y); y+=7;
-    doc.text(`Teléfono: ${document.getElementById("telefonoCliente").value}`, 10, y); y+=7;
-    doc.text(`Correo: ${document.getElementById("correoCliente").value}`, 10, y); y+=7;
-    doc.text(`Dirección: ${document.getElementById("direccionCliente").value}`, 10, y); y+=10;
+  // Condiciones
+  doc.setFontSize(11);
+  doc.text("Condiciones Comerciales:", 14, doc.lastAutoTable.finalY + 20);
+  doc.text(document.getElementById("condiciones").value, 14, doc.lastAutoTable.finalY + 28);
 
-    // Tabla de items
-    const body = [];
-    const filas = document.querySelectorAll("#tablaItems tbody tr");
-    let total = 0;
-    filas.forEach(fila => {
-      const cantidad = fila.cells[0].children[0].value;
-      const descripcion = fila.cells[1].children[0].value;
-      const valor = fila.cells[2].children[0].value;
-      const subtotal = fila.cells[3].innerText;
-      total += parseFloat(subtotal);
-      body.push([cantidad, descripcion, valor, subtotal]);
-    });
+  // Pie
+  doc.setFontSize(10);
+  doc.text("NEMOC Ingeniería y Tecnología - Multiservicios Integrales", 105, 290, null, null, "center");
 
-    doc.autoTable({
-      head: [["Cantidad", "Descripción", "Valor Unitario", "Subtotal"]],
-      body: body,
-      startY: y,
-    });
-
-    // Totales
-    let iva = parseFloat(document.getElementById("iva").value || 0);
-    let subtotalGeneral = total.toFixed(2);
-    let valorIVA = ((total * iva) / 100).toFixed(2);
-    let totalFinal = (total + (total * iva) / 100).toFixed(2);
-
-    let finalY = doc.lastAutoTable.finalY + 10;
-    doc.text(`Subtotal: $${subtotalGeneral}`, 140, finalY); finalY+=7;
-    doc.text(`IVA (${iva}%): $${valorIVA}`, 140, finalY); finalY+=7;
-    doc.text(`TOTAL: $${totalFinal}`, 140, finalY);
-
-    // Condiciones
-    finalY+=15;
-    doc.text("Condiciones:", 10, finalY); finalY+=7;
-    let condiciones = document.getElementById("condiciones").value.split("\n");
-    condiciones.forEach(cond => {
-      doc.text(`- ${cond}`, 15, finalY); finalY+=7;
-    });
-
-    // Pie
-    finalY+=15;
-    doc.setFontSize(10);
-    doc.text("NEMOC MULTISERVICIOS INGENIERÍA Y TECNOLOGÍA", 10, finalY);
-    finalY+=5;
-    doc.text("Tel: 3185621097 | Email: nemoca1004@gmail.com", 10, finalY);
-    finalY+=5;
-    doc.text("Dirección: Calle 45 # 35-36, Barrio Líbano, Santa Marta", 10, finalY);
-
-    doc.save("Cotizacion_NEMOC.pdf");
-  }
+  doc.save("Cotizacion_NEMOC.pdf");
+}
 </script>
 </body>
 </html>
