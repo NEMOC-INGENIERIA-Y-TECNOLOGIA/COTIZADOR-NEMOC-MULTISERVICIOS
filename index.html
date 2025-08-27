@@ -2,153 +2,143 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Cotizador NEMOC</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
   <style>
     body { font-family: Arial, sans-serif; margin: 20px; }
-    h1 { color: #005baa; }
+    h2 { color: #003366; }
     label { display:block; margin-top:10px; font-weight: bold; }
-    input, textarea { width:100%; padding:5px; margin-top:4px; }
-    table { width:100%; border-collapse: collapse; margin-top:20px; }
-    table, th, td { border:1px solid #ccc; }
-    th, td { padding:8px; text-align:center; }
-    .btn { margin-top:20px; padding:10px 15px; background:#005baa; color:#fff; border:none; cursor:pointer; border-radius:5px; }
+    input, textarea { width: 100%; padding: 6px; margin-top:4px; }
+    table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+    table, th, td { border: 1px solid #ccc; }
+    th, td { padding: 8px; text-align: center; }
+    button { margin-top: 15px; padding: 10px 15px; background:#003366; color:white; border:none; cursor:pointer; border-radius:5px; }
+    button:hover { background:#0055aa; }
   </style>
 </head>
 <body>
-  <h1>Cotizador - NEMOC Multiservicios Ingeniería y Tecnología</h1>
+  <h2>📄 Generador de Cotizaciones - NEMOC Multiservicios Ingeniería y Tecnología</h2>
 
-  <h3>Datos del Cliente</h3>
-  <label>Nombre:</label><input id="clienteNombre">
-  <label>Empresa:</label><input id="clienteEmpresa">
-  <label>NIT:</label><input id="clienteNIT">
-  <label>Teléfono:</label><input id="clienteTelefono">
-  <label>Correo:</label><input id="clienteCorreo">
-  <label>Dirección:</label><input id="clienteDireccion">
+  <!-- Datos del cliente -->
+  <label>Cliente:</label><input type="text" id="cliente">
+  <label>Empresa:</label><input type="text" id="empresa">
+  <label>NIT:</label><input type="text" id="nit">
+  <label>Teléfono:</label><input type="text" id="telefono">
+  <label>Correo:</label><input type="email" id="correo">
+  <label>Dirección:</label><input type="text" id="direccion">
 
-  <h3>Items de Cotización</h3>
-  <table id="tablaItems">
+  <!-- IVA editable -->
+  <label>% IVA:</label><input type="number" id="iva" value="19">
+
+  <!-- Condiciones -->
+  <label>Condiciones comerciales:</label>
+  <textarea id="condiciones">Tiempo de entrega: inmediato. Forma de pago: transferencia bancaria. Validez: 15 días.</textarea>
+
+  <!-- Tabla de ítems -->
+  <table id="items">
     <thead>
-      <tr><th>Cant.</th><th>Descripción</th><th>V. Unitario</th><th>Subtotal</th><th>Acción</th></tr>
+      <tr>
+        <th>Cantidad</th>
+        <th>Descripción</th>
+        <th>Valor Unitario</th>
+        <th>Total</th>
+        <th>Acción</th>
+      </tr>
     </thead>
     <tbody></tbody>
   </table>
   <button onclick="agregarItem()">➕ Agregar Ítem</button>
+  <button onclick="generarPDF()">📑 Generar PDF</button>
 
-  <h3>Condiciones Comerciales</h3>
-  <textarea id="condiciones" rows="4">1. Precios en COP.
-2. IVA no incluido.
-3. Tiempo de entrega: 15 días hábiles.
-4. Garantía: 12 meses.</textarea>
+  <script>
+    const { jsPDF } = window.jspdf;
 
-  <h3>Impuestos</h3>
-  <label>IVA (%):</label>
-  <input id="iva" type="number" value="19">
+    function agregarItem() {
+      let tabla = document.querySelector("#items tbody");
+      let fila = document.createElement("tr");
+      fila.innerHTML = `
+        <td><input type="number" value="1" onchange="actualizarTotal(this)"></td>
+        <td><input type="text" placeholder="Descripción"></td>
+        <td><input type="number" value="0" onchange="actualizarTotal(this)"></td>
+        <td class="total">0</td>
+        <td><button onclick="this.parentElement.parentElement.remove()">❌</button></td>
+      `;
+      tabla.appendChild(fila);
+    }
 
-  <button class="btn" onclick="generarPDF()">Generar PDF</button>
+    function actualizarTotal(el) {
+      let fila = el.closest("tr");
+      let cantidad = fila.children[0].children[0].value;
+      let unitario = fila.children[2].children[0].value;
+      fila.querySelector(".total").textContent = (cantidad * unitario).toFixed(2);
+    }
 
-<script>
-let { jsPDF } = window.jspdf;
+    function generarPDF() {
+      let doc = new jsPDF();
 
-// Logo en Base64 (tu imagen ya convertida a base64)
-const logoBase64 = ""; // 👉 aquí debo pegar tu logo convertido a base64
+      // Logo (base64 incrustado si quieres fijo, aquí ejemplo con rectángulo de marca)
+      doc.setFillColor(0, 51, 102);
+      doc.rect(10, 10, 190, 20, "F");
+      doc.setTextColor(255,255,255);
+      doc.setFontSize(16);
+      doc.text("NEMOC Multiservicios Ingeniería y Tecnología", 15, 25);
 
-function agregarItem() {
-  let tabla = document.getElementById("tablaItems").querySelector("tbody");
-  let fila = tabla.insertRow();
-  fila.innerHTML = `
-    <td><input type="number" value="1" onchange="actualizarSubtotal(this)"></td>
-    <td><input type="text" placeholder="Descripción"></td>
-    <td><input type="number" value="0" onchange="actualizarSubtotal(this)"></td>
-    <td class="subtotal">0</td>
-    <td><button onclick="eliminarFila(this)">❌</button></td>
-  `;
-}
+      doc.setTextColor(0,0,0);
+      doc.setFontSize(12);
+      let fecha = new Date().toLocaleDateString();
+      doc.text(`Fecha: ${fecha}`, 150, 40);
 
-function eliminarFila(btn) {
-  btn.parentElement.parentElement.remove();
-}
+      // Datos del cliente
+      doc.setFontSize(11);
+      doc.text(`Cliente: ${document.getElementById("cliente").value}`, 15, 50);
+      doc.text(`Empresa: ${document.getElementById("empresa").value}`, 15, 56);
+      doc.text(`NIT: ${document.getElementById("nit").value}`, 15, 62);
+      doc.text(`Teléfono: ${document.getElementById("telefono").value}`, 15, 68);
+      doc.text(`Correo: ${document.getElementById("correo").value}`, 15, 74);
+      doc.text(`Dirección: ${document.getElementById("direccion").value}`, 15, 80);
 
-function actualizarSubtotal(input) {
-  let fila = input.parentElement.parentElement;
-  let cantidad = parseFloat(fila.cells[0].querySelector("input").value) || 0;
-  let valor = parseFloat(fila.cells[2].querySelector("input").value) || 0;
-  fila.querySelector(".subtotal").innerText = (cantidad * valor).toFixed(2);
-}
+      // Tabla de ítems
+      let filas = [];
+      document.querySelectorAll("#items tbody tr").forEach(tr => {
+        let cantidad = tr.children[0].children[0].value;
+        let desc = tr.children[1].children[0].value;
+        let unitario = tr.children[2].children[0].value;
+        let total = tr.children[3].textContent;
+        filas.push([cantidad, desc, unitario, total]);
+      });
 
-function generarPDF() {
-  let doc = new jsPDF();
+      doc.autoTable({
+        startY: 90,
+        head: [['Cantidad','Descripción','Unitario','Total']],
+        body: filas
+      });
 
-  // Logo
-  if (logoBase64) {
-    doc.addImage(logoBase64, "PNG", 10, 10, 40, 20);
-  }
+      // Calcular totales
+      let subtotal = filas.reduce((sum, row) => sum + parseFloat(row[3]||0), 0);
+      let iva = parseFloat(document.getElementById("iva").value) || 0;
+      let ivaValor = subtotal * (iva/100);
+      let total = subtotal + ivaValor;
 
-  doc.setFontSize(12);
-  doc.text("NEMOC Multiservicios Ingeniería y Tecnología", 60, 20);
-  doc.text("Tel: 3185621097 | Email: nemoca1004@gmail.com", 60, 27);
-  doc.text("Calle 45 #35-36 Barrio Líbano, Santa Marta", 60, 34);
+      let posY = doc.lastAutoTable.finalY + 10;
+      doc.text(`Subtotal: $${subtotal.toFixed(2)}`, 140, posY);
+      doc.text(`IVA (${iva}%): $${ivaValor.toFixed(2)}`, 140, posY+6);
+      doc.text(`TOTAL: $${total.toFixed(2)}`, 140, posY+12);
 
-  doc.setFontSize(14);
-  doc.text("Cotización", 105, 50, null, null, "center");
+      // Condiciones
+      doc.setFontSize(10);
+      doc.text("Condiciones comerciales:", 15, posY+20);
+      doc.text(doc.splitTextToSize(document.getElementById("condiciones").value, 180), 15, posY+26);
 
-  // Datos cliente
-  let cliente = [
-    ["Nombre:", document.getElementById("clienteNombre").value],
-    ["Empresa:", document.getElementById("clienteEmpresa").value],
-    ["NIT:", document.getElementById("clienteNIT").value],
-    ["Teléfono:", document.getElementById("clienteTelefono").value],
-    ["Correo:", document.getElementById("clienteCorreo").value],
-    ["Dirección:", document.getElementById("clienteDireccion").value]
-  ];
-  doc.autoTable({ startY: 60, body: cliente, theme:"plain" });
+      // Pie de página
+      doc.setFontSize(9);
+      doc.text("NEMOC Multiservicios Ingeniería y Tecnología", 15, 280);
+      doc.text("Tel: 3185621097 - Email: nemoca1004@gmail.com", 15, 286);
+      doc.text("Calle 45 # 35-36, Barrio Líbano, Santa Marta", 15, 292);
 
-  // Items
-  let items = [];
-  let filas = document.getElementById("tablaItems").querySelector("tbody").rows;
-  let subtotal = 0;
-  for (let f of filas) {
-    let cant = f.cells[0].querySelector("input").value;
-    let desc = f.cells[1].querySelector("input").value;
-    let unit = f.cells[2].querySelector("input").value;
-    let sub = parseFloat(f.cells[3].innerText) || 0;
-    subtotal += sub;
-    items.push([cant, desc, unit, sub.toFixed(2)]);
-  }
-
-  doc.autoTable({
-    head:[["Cant.","Descripción","V. Unitario","Subtotal"]],
-    body: items,
-    startY: doc.lastAutoTable.finalY + 10
-  });
-
-  // Totales
-  let iva = parseFloat(document.getElementById("iva").value) || 0;
-  let valorIVA = subtotal * iva / 100;
-  let total = subtotal + valorIVA;
-
-  doc.autoTable({
-    body:[
-      ["Subtotal", subtotal.toFixed(2)],
-      ["IVA ("+iva+"%)", valorIVA.toFixed(2)],
-      ["TOTAL", total.toFixed(2)]
-    ],
-    startY: doc.lastAutoTable.finalY + 5,
-    theme:"plain"
-  });
-
-  // Condiciones
-  doc.setFontSize(11);
-  doc.text("Condiciones Comerciales:", 14, doc.lastAutoTable.finalY + 20);
-  doc.text(document.getElementById("condiciones").value, 14, doc.lastAutoTable.finalY + 28);
-
-  // Pie
-  doc.setFontSize(10);
-  doc.text("NEMOC Ingeniería y Tecnología - Multiservicios Integrales", 105, 290, null, null, "center");
-
-  doc.save("Cotizacion_NEMOC.pdf");
-}
-</script>
+      doc.save("cotizacion_nemoc.pdf");
+    }
+  </script>
 </body>
 </html>
