@@ -1,99 +1,155 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Cotizador NEMOC</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Cotizador NEMOC Ingeniería y Tecnología</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
+  <script src="logo_nemoc_base64.js"></script>
   <style>
     body { font-family: Arial, sans-serif; margin: 20px; }
-    .container { max-width: 900px; margin: auto; }
-    h1 { text-align: center; color: #003366; }
-    label { font-weight: bold; display: block; margin-top: 10px; }
-    input, textarea { width: 100%; padding: 8px; margin-top: 5px; border: 1px solid #ccc; border-radius: 5px; }
-    table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-    th, td { border: 1px solid #ccc; padding: 8px; text-align: center; }
-    th { background: #003366; color: #fff; }
-    button { background: #003366; color: #fff; padding: 10px 20px; border: none; border-radius: 5px; margin-top: 20px; cursor: pointer; }
-    button:hover { background: #0055aa; }
+    h1 { text-align: center; }
+    table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+    table, th, td { border: 1px solid #ccc; }
+    th, td { padding: 8px; text-align: center; }
+    input { width: 100%; border: none; text-align: center; }
+    .btn { padding: 8px 12px; margin: 5px; cursor: pointer; border: none; border-radius: 5px; }
+    .btn-add { background: #28a745; color: white; }
+    .btn-del { background: #dc3545; color: white; }
+    .btn-clear { background: #ffc107; color: black; }
+    .totales { text-align: right; margin-top: 15px; font-weight: bold; }
   </style>
 </head>
 <body>
-  <div class="container">
-    <h1>Cotizador NEMOC</h1>
+  <h1>Cotización - NEMOC Ingeniería y Tecnología</h1>
 
-    <h3>Datos del Cliente</h3>
-    <label>Nombre o Razón Social</label>
-    <input type="text" id="cliente" placeholder="Nombre del cliente">
-    <label>NIT</label>
-    <input type="text" id="nit" placeholder="NIT o cédula">
-    <label>Teléfono</label>
-    <input type="text" id="telefonoCliente" placeholder="Teléfono">
-    <label>Email</label>
-    <input type="email" id="email" placeholder="Correo electrónico">
+  <h3>Datos del Cliente</h3>
+  <label>Nombre/Empresa: <input id="cliente_nombre" /></label><br />
+  <label>NIT: <input id="cliente_nit" /></label><br />
+  <label>Teléfono: <input id="cliente_tel" /></label><br />
+  <label>Correo: <input id="cliente_correo" /></label><br />
 
-    <h3>Items de Cotización</h3>
-    <table id="itemsTable">
-      <thead>
-        <tr>
-          <th>Descripción</th>
-          <th>Cantidad</th>
-          <th>Valor Unitario</th>
-          <th>Total</th>
-        </tr>
-      </thead>
-      <tbody></tbody>
-    </table>
-    <button onclick="agregarItem()">Agregar Ítem</button>
+  <h3>Ítems</h3>
+  <table id="tablaItems">
+    <thead>
+      <tr>
+        <th>Cantidad</th>
+        <th>Descripción</th>
+        <th>Valor Unitario</th>
+        <th>Total</th>
+        <th>Acciones</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
 
-    <label>IVA (%)</label>
-    <input type="number" id="iva" value="19">
+  <button class="btn btn-add" onclick="agregarFila()">➕ Agregar Ítem</button>
+  <button class="btn btn-clear" onclick="limpiarTabla()">🗑️ Limpiar Ítems</button>
 
-    <h3>Condiciones</h3>
-    <textarea id="condiciones" rows="4">- La presente cotización tiene validez de 30 días.
-- Los tiempos de entrega se confirman al momento de la compra.
-- Precios en pesos colombianos (COP).
-- Garantía de 12 meses contra defectos de fabricación.</textarea>
-
-    <button onclick="generarPDF()">Generar PDF</button>
+  <div class="totales">
+    Subtotal: <span id="subtotal">0</span><br />
+    IVA (%): <input id="iva" type="number" value="19" style="width:60px;text-align:right;" oninput="calcularTotales()"/> %<br />
+    Total: <span id="total">0</span>
   </div>
 
-  <script>
-    const { jsPDF } = window.jspdf;
+  <h3>Condiciones</h3>
+  <textarea id="condiciones" rows="5" style="width:100%;">Válida por 30 días. Pago 50% inicial y 50% contraentrega.</textarea>
 
-    function agregarItem() {
-      const tbody = document.querySelector("#itemsTable tbody");
+  <button class="btn btn-add" onclick="generarPDF()">📄 Generar PDF</button>
+
+  <script>
+    function formatoCOP(valor) {
+      return new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP" }).format(valor);
+    }
+
+    function agregarFila() {
+      const tabla = document.getElementById("tablaItems").querySelector("tbody");
       const fila = document.createElement("tr");
       fila.innerHTML = `
-        <td contenteditable="true">Descripción</td>
-        <td contenteditable="true">1</td>
-        <td contenteditable="true">0</td>
-        <td>0</td>
+        <td><input type="number" value="1" oninput="calcularTotales()" /></td>
+        <td><input type="text" placeholder="Descripción" oninput="calcularTotales()"/></td>
+        <td><input type="number" value="0" oninput="calcularTotales()"/></td>
+        <td class="totalFila">0</td>
+        <td><button class="btn btn-del" onclick="this.parentElement.parentElement.remove(); calcularTotales();">❌</button></td>
       `;
-      tbody.appendChild(fila);
-      actualizarTotales();
+      tabla.appendChild(fila);
+      calcularTotales();
     }
 
-    function actualizarTotales() {
-      const filas = document.querySelectorAll("#itemsTable tbody tr");
-      filas.forEach(fila => {
-        const cantidad = parseFloat(fila.children[1].innerText) || 0;
-        const unitario = parseFloat(fila.children[2].innerText) || 0;
-        fila.children[3].innerText = (cantidad * unitario).toFixed(2);
+    function limpiarTabla() {
+      document.querySelector("#tablaItems tbody").innerHTML = "";
+      calcularTotales();
+    }
+
+    function calcularTotales() {
+      let subtotal = 0;
+      document.querySelectorAll("#tablaItems tbody tr").forEach(fila => {
+        let cantidad = parseFloat(fila.children[0].children[0].value) || 0;
+        let unitario = parseFloat(fila.children[2].children[0].value) || 0;
+        let total = cantidad * unitario;
+        fila.querySelector(".totalFila").innerText = formatoCOP(total);
+        subtotal += total;
       });
+      document.getElementById("subtotal").innerText = formatoCOP(subtotal);
+      let iva = parseFloat(document.getElementById("iva").value) || 0;
+      let total = subtotal * (1 + iva/100);
+      document.getElementById("total").innerText = formatoCOP(total);
     }
 
-    function generarPDF() {
-      actualizarTotales();
-
-      const cliente = document.getElementById("cliente").value;
-      const nit = document.getElementById("nit").value;
-      const telefonoCliente = document.getElementById("telefonoCliente").value;
-      const email = document.getElementById("email").value;
-      const condiciones = document.getElementById("condiciones").value;
-      const iva = parseFloat(document.getElementById("iva").value) || 0;
-
+    async function generarPDF() {
+      const { jsPDF } = window.jspdf;
       const doc = new jsPDF();
 
-      // Logo Base64 incrustado
-      const logo = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAXcAAAF3CAYAAACwU6GVAAAABHNCSVQICAgIfAhkiAAAIABJREFUeJzt3Xl4HFWd+P/HbO4lIU0gQCEBElQlLALoJ7mVokQi6oJpRNZqo1GFmkoRDSkVNAgpJNMCY1zMzDGV5jxhAmhCKgqIOiIqKCGhLIJISF3lff3u3uufd/YmTPn3nsmc5/rznVt71nnnnP3vud9zrgjAAAAAAAAAAAAAADwqM3XAwAAAAAAAAAAAMCSPgsQAAAAAAAAAAAAYmUCBgAAAAAAAAAAICbFAgYAAAAAAAAAAICYFAkYAAAAAAAAAAAgJsUCBgAAAAAAAAAAICbFAgYAAAAAAAAAAICYFAkYAAAAAAAAAAAgJsUCBgAAAAAAAAAAICbFAgYAAAAAAAAAAICYFAkYAAAAAAAAAAAgJsUCBgAAAAAAAAAAICbFAgYAAAAAAAAAAICYFAkYAAAAAAAAAAAgJsUCBgAAAAAAAAAAICbFAgYAAAAAAAAAAICYFAkYAAAAAAAAAAAgJsUCBgAAAAAAAAAAICbFAgYAAAAAAAAAAICYFAkYAAAAAAAAAAAgJsUCBgAAAAAAAAAAICbFAgYAAAAAAAAAAICYFAkYAAAAAAAAAAAgJsUCBgAAAAAAAAAAICbFAgYAAAAAAAAAAICYFAkYAAAAAAAAAAAgJsUCBgAAAAAAAAAAICbFAgYAAAAAAAAAAICYFAkYAAAAAAAAAAAgJsUCBgAAAAAAAAAAICbFAgYAAAAAAAAAAICYFAkYAAAAAAAAAAAgJsUCBgAAAAAAAAAAICbFAgYAAAAAAAAAAICYFAkYAAAAAAAAAAAgJsUCBgAAAAAAAAAAICbFAgYAAAAAAAAAAICYFAkYAAAAAAAAAAAgJsUCBgAAAAAAAAAAICbFAgYAAAAAAAAAAICYFAkYAAAAAAAAAAAgJsUCBgAAAAAAAAAAICbFAgYAAAAAAAAAAICYFAkYAAAAAAAAAAAgJsUCBgAAAAAAAAAAICbFAgYAAAAAAAAAAICYFAkYAAAAAAAAAAAgJsUCBgAAAAAAAAAAICbFAgYAAAAAAAAAAICYFAkYAAAAAAAAAAAgJsUCBgAAAAAAAAAAICbFAgYAAAAAAAAAAICYFAkYAAAAAAAAAAAgJsUCBgAAAAAAAAAAICbFAgYAAAAAAAAAAICYFAkYAAAAAAAAAAAgJsUCBgAAAAAAAAAAICbFAgYAAAAAAAAAAICYFAkYAAAAAAAAAAAgJsUCBgAAAAAAAAAAICbFAgYAAAAAAAAAAICYFAkYAAAAAAAAAAAgJsUCBgAAAAAAAAAAICbFAgYAAAAAAAAAAICYFAkYAAAAAAAAAAAgJsUCBgAAAAAAAAAAICbFAgYAAAAAAAAAAICYFAkYAAAAAAAAAAAgJsUCBgAAAAAAAAAAICbFAgYAAAAAAAAAAICYFAkYAAAAAAAAAAAgJsUCBgAAAAAAAAAAICbFAgYAAAAAAAAAAICYFAkYAAAAAAAAAAAgJsUCBgAAAAAAAAAAICbFAgYAAAAAAAAAAICYFAkYAAAAAAAAAAAgJsUCBgAAAAAAAAAAICbFAgYAAAAAAAAAAICYFAkYAAAAAAAAAAAgJsUCBgAAAAAAAAAAICbFAgYAAAAAAAAAAICYFAkYAAAAAAAAAAAgJsUCBgAAAAAAAAAAICbFAgYAAAAAAAAAAICYFAkYAAAAAAAAAAAgJsUCBgAAAAAAAAAAICbFAgYAAAAAAAAAAICYFAkYAAAAAAAAAAAgJsUCBgAAAAAAAAAAICbFAgYAAAAAAAAAAICYFAkYAAAAAAAAAAAgJsUCBgAAAAAAAAAAICbFAgYAAAAAAAAAAICYFAkYAAAAAAAAAAAgJsUCBgAAAAAAAAAAICbFAgYAAAAAAAAAAICYFAkYAAAAAAAAAAAgJsUCBgAAAAAAAAAAICbFAgYAAAAAAAAAAICYFAkYAAAAAAAAAAAgJsUCBgAAAAAAAAAAICbFAgYAAAAAAAAAAICYFAkYAAAAAAAAAAAgJsUCBgAAAAAAAAAAICbFAgYAAAAAAAAAAICYFAkYAAAAAAAAAAAgJsUCBgAAAAAAAAAAICbFAgYAAAAAAAAAAICYFAkYAAAAAAAAAAAgJsUCBgAAAAAAAAAAICbFAgYAAAAAAAAAAICYFAkYAAAAAAAAAAAgJsUCBgAAAAAAAAAAICbFAgYAAAAAAAAAAICYFAkYAAAAAAAAAAAgJsUCBgAAAAAAAAAAICbFAgYAAAAAAAAAAICYFAkYAAAAAAAAAAAgJsUCBgAAAAAAAAAAICbFAgYAAAAAAAAAAICYFAkYAAAAAAAAAAAgJsUCBgAAAAAAAAAAICbFAgYAAAAAAAAAAICYFAkYAAAAAAAAAAAgJsUCBgAAAAAAAAAAICbFAgYAAAAAAAAAAICYFAkYAAAAAAAAAAAgJsUCBgAAAAAAAAAAICbFAgYAAAAAAAAAAICYFAkYAAAAAAAAAAAgJsUCBgAAAAAAAAAAICbFAgYAAAAAAAAAAICYFAkYAAAAAAAAAAAgJsUCBgAAAAAAAAAAICbFAgYAAAAAAAAAAICYFAkYAAAAAAAAAAAgJsUCBgAAAAAAAAAAICbFAgYAAAAAAAAAAICYFAkYAAAAAAAAAAAgJsUCBgAAAAAAAAAAICbFAgYAAAAAAAAAAICYFAkYAAAAAAAAAAAgJsUCBgAAAAAAAAAAICbFAgYAAAAAAAAAAICYFAkYAAAAAAAAAAAgJsUCBgAAAAAAAAAAICbFAgYAAAAAAAAAAICYFAkYAAAAAAAAAAAgJsUCBgAAAAAAAAAAICbFAgYAAAAAAAAAAICYFAkYAAAAAAAAAAAgJsUCBgAAAAAAAAAAICbFAgYAAAAAAAAAAICYFAkYAAAAAAAAAAAgJsUCBgAAAAAAAAAAICbFAgYAAAAAAAAAAICYFAkYAAAAAAAAAAAgJsUCBgAAAAAAAAAAICbFAgYAAAAAAAAAAICYFAkYAAAAAAAAAAAgJsUCBgAAAAAAAAAAICbFAgYAAAAAAAAAAICYFAkYAAAAAAAAAAAgJsUCBgAAAAAAAAAAICbFAgYAAAAAAAAAAICYFAkYAAAAAAAAAAAgJsUCBgAAAAAAAAAAICbFAgYAAAAAAAAAAICYFAkYAAAAAAAAAAAgJsUCBgAAAAAAAAAAICbFAgYAAAAAAAAAAICYFAkYAAAAAAAAAAAgJsUCBgAAAAAAAAAAICbFAgYAAAAAAAAAAICYFAkYAAAAAAAAAAAgJsUCBgAAAAAAAAAAICbFAgYAAAAAAAAAAICYFAkYAAAAAAAAAAAgJsUCBgAAAAAAAAAAICbFAgYAAAAAAAAAAICYFAkYAAAAAAAAAAAgJsUCBgAAAAAAAAAAICbFAgYAAAAAAAAAAICYFAkYAAAAAAAAAAAgJsUCBgAAAAAAAAAAICbFAgYAAAAAAAAAAICYFAkYAAAAAAAAAAAgJsUCBgAAAAAAAAAAICbFAgYAAAAAAAAAAICYFAkYAAAAAAAAAAAgJsUCBgAAAAAAAAAAICbFAgYAAAAAAAAAAICYFAkYAAAAAAAAAAAgJsUCBgAAAAAAAAAAICbFAgYAAAAAAAAAAICYFAkYAAAAAAAAAAAgJsUCBgAAAAAAAAAAICbFAgYAAAAAAAAAAICYFAkYAAAAAAAAAAAgJsUCBgAAAAAAAAAAICbFAgYAAAAAAAAAAICYFAkYAAAAAAAAAAAgJsUCBgAAAAAAAAAAICbFAgYAAAAAAAAAAICYFAkYAAAAAAAAAAAgJsUCBgAAAAAAAAAAICbFAgYAAAAAAAAAAICYFAkYAAAAAAAAAAAgJsUCBgAAAAAAAAAAICbFAgYAAAAAAAAAAICYFAkYAAAAAAAAAAAgJsUCBgAAAAAAAAAAICbFAgYAAAAAAAAAAICYFAkYAAAAAAAAAAAgJsUCBgAAAAAAAAAAICbFAgYAAAAAAAAAAICYFAkYAAAAAAAAAAAgJsUCBgAAAAAAAAAAICbFAgYAAAAAAAAAAICYFAkYAAAAAAAAAAAgJsUCBgAAAAAAAAAAICbFAgYAAAAAAAAAAICYFAkYAAAAAAAAAAAgJsUCBgAAAAAAAAAAICbFAgYAAAAAAAAAAICYFAkYAAAAAAAAAAAgJsUCBgAAAAAAAAAAICbFAgYAAAAAAAAAAICYFAkYAAAAAAAAAAAgJsUCBgAAAAAAAAAAICbFAgYAAAAAAAAAAICYFAkYAAAAAAAAAAAgJsUCBgAAAAAAAAAAICbFAgYAAAAAAAAAAICYFAkYAAAAAAAAAAAgJsUCBgAAAAAAAAAAICbFAgYAAAAAAAAAAICYFAkYAAAAAAAAAAAgJsUCBgAAAAAAAAAAICbFAgYAAAAAAAAAAICYFAkYAAAAAAAAAAAgJsUCBgAAAAAAAAAAICbFAgYAAAAAAAAAAICYFAkYAAAAAAAAAAAgJsUCBgAAAAAAAAAAICbFAgYAAAAAAAAAAICYFAkYAAAAAAAAAAAgJsUCBgAAAAAAAAAAICbFAgYAAAAAAAAAAICYFAkYAAAAAAAAAAAgJsUCBgAAAAAAAAAAICbFAgYAAAAAAAAAAICYFAkYAAAAAAAAAAAgJsUCBgAAAAAAAAAAICbFAgYAAAAAAAAAAICYFAkYAAAAAAAAAAAgJsUCBgAAAAAAAAAAICbFAgYAAAAAAAAAAICYFAkYAAAAAAAAAAAgJsUCBgAAAAAAAAAAICbFAgYAAAAAAAAAAICYFAkYAAAAAAAAAAAgJsUCBgAAAAAAAAAAICbFAgYAAAAAAAAAAICYFAkYAAAAAAAAAAAgJsUCBgAAAAAAAAAAICbFAgYAAAAAAAAAAICYFAkYAAAAAAAAAAAgJsUCBgAAAAAAAAAAICbFAgYAAAAAAAAAAICYFAkYAAAAAAAAAAAgJsUCBgAAAAAAAAAAICbFAgYAAAAAAAAAAICYFAkYAAAAAAAAAAAgJsUCBgAAAAAAAAAAICbFAgYAAAAAAAAAAICYFAkYAAAAAAAAAAAgJsUCBgAAAAAAAAAAICbFAgYAAAAAAAAAAICYFAkYAAAAAAAAAAAgJsUCBgAAAAAAAAAAICbFAgYAAAAAAAAAAICYFAkYAAAAAAAAAAAgJsUCBgAAAAAAAAAAICbFAgYAAAAAAAAAAICYFAkYAAAAAAAAAAAgJsUCBgAAAAAAAAAAICbFAgYAAAAAAAAAAICYFAkYAAAAAAAAAAAgJsUCBgAAAAAAAAAAICbFAgYAAAAAAAAAAICYFAkYAAAAAAAAAAAgJsUCBgAAAAAAAAAAICbFAgYAAAAAAAAAAICYFAkYAAAAAAAAAAAgJsUCBgAAAAAAAAAAICbFAgYAAAAAAAAAAICYFAkYAAAAAAAAAAAgJsUCBgAAAAAAAAAAICbFAgYAAAAAAAAAAICYFAkYAAAAAAAAAAAgJsUCBgAAAAAAAAAAICbFAgYAAAAAAAAAAICYFAkYAAAAAAAAAAAgJsUCBgAAAAAAAAAAICbFAgYAAAAAAAAAAICYFAkYAAAAAAAAAAAgJsUCBgAAAAAAAAAAICbFAgYAAAAAAAAAAICYFAkYAAAAAAAAAAAgJsUCBgAAAAAAAAAAICbFAgYAAAAAAAAAAICYFAkYAAAAAAAAAAAgJsUCBgAAAAAAAAAAICbFAgYAAAAAAAAAAICYFAkYAAAAAAAAAAAgJsUCBgAAAAAAAAAAICbFAgYAAAAAAAAAAICYFAkYAAAAAAAAAAAgJsUCBgAAAAAAAAAAICbFAgYAAAAAAAAAAICYFAkYAAAAAAAAAAAgJsUCBgAAAAAAAAAAICbFAgYAAAAAAAAAAICYFAkYAAAAAAAAAAAgJsUCBgAAAAAAAAAAICbFAgYAAAAAAAAAAICYFAkYAAAAAAAAAAAgJsUCBgAAAAAAAAAAICbFAgYAAAAAAAAAAICYFAkYAAAAAAAAAAAgJsUCBgAAAAAAAAAAICbFAgYAAAAAAAAAAICYFAkYAAAAAAAAAAAgJsUCBgAAAAAAAAAAICbFAgYAAAAAAAAAAICYFAkYAAAAAAAAAAAgJsUCBgAAAAAAAAAAICbFAgYAAAAAAAAAAICYFAkYAAAAAAAAAAAgJsUCBgAAAAAAAAAAICbFAgYAAAAAAAAAAICYFAkYAAAAAAAAAAAgJsUCBgAAAAAAAAAAICbFAgYAAAAAAAAAAICYFAkYAAAAAAAAAAAgJsUCBgAAAAAAAAAAICbFAgYAAAAAAAAAAICYFAkYAAAAAAAAAAAgJsUCBgAAAAAAAAAAICbFAgYAAAAAAAAAAICYFAkYAAAAAAAAAAAgJsUCBgAAAAAAAAAAICbFAgYAAAAAAAAAAICYFAkYAAAAAAAAAAAgJsUCBgAAAAAAAAAAICbFAgYAAAAAAAAAAICYFAkYAAAAAAAAAAAgJsUCBgAAAAAAAAAAICbFAgYAAAAAAAAAAICYFAkYAAAAAAAAAAAgJsUCBgAAAAAAAAAAICbFAgYAAAAAAAAAAICYFAkYAAAAAAAAAAAgJsUCBgAAAAAAAAAAICbFAgYAAAAAAAAAAICYFAkYAAAAAAAAAAAgJsUCBgAAAAAAAAAAICbFAgYAAAAAAAAAAICYFAkYAAAAAAAAAAAgJsUCBgAAAAAAAAAAICbFAgYAAAAAAAAAAICYFAkYAAAAAAAAAAAgJsUCBgAAAAAAAAAAICbFAgYAAAAAAAAAAICYFAkYAAAAAAAAAAAgJsUCBgAAAAAAAAAAICbFAgYAAAAAAAAAAICYFAkYAAAAAAAAAAAgJsUCBgAAAAAAAAAAICbFAgYAAAAAAAAAAICYFAkYAAAAAAAAAAAgJsUCBgAAAAAAAAAAICbFAgYAAAAAAAAAAICYFAkYAAAAAAAAAAAgJsUCBgAAAAAAAAAAICbFAgYAAAAAAAAAAICYFAkYAAAAAAAAAAAgJsUCBgAAAAAAAAAAICbFAgYAAAAAAAAAAICYFAkYAAAAAAAAAAAgJsUCBgAAAAAAAAAAICbFAgYAAAAAAAAAAICYFAkYAAAAAAAAAAAgJsUCBgAAAAAAAAAAICbFAgYAAAAAAAAAAICYFAkYAAAAAAAAAAAgJsUCBgAAAAAAAAAAICbFAgYAAAAAAAAAAICYFAkYAAAAAAAAAAAgJsUCBgAAAAAAAAAAICbFAgYAAAAAAAAAAICYFAkYAAAAAAAAAAAgJsUCBgAAAAAAAAAAICbFAgYAAAAAAAAAAICYFAkYAAAAAAAAAAAgJsUCBgAAAAAAAAAAICbFAgYAAAAAAAAAAICYFAkYAAAAAAAAAAAgJsUCBgAAAAAAAAAAICbFAgYAAAAAAAAAAICYFAkYAAAAAAAAAAAgJsUCBgAAAAAAAAAAICbFAgYAAAAAAAAAAICYFAkYAAAAAAAAAAAgJsUCBgAAAAAAAAAAICbFAgYAAAAAAAAAAICYFA
+      // Logo
+      if (typeof LOGO_NEMOC !== 'undefined') {
+        doc.addImage(LOGO_NEMOC, "PNG", 150, 10, 40, 30);
+      }
+
+      doc.setFontSize(16);
+      doc.text("COTIZACIÓN", 14, 20);
+      doc.setFontSize(10);
+      doc.text("NEMOC Ingeniería y Tecnología", 14, 28);
+      doc.text("Tel: 3185621097", 14, 34);
+      doc.text("Email: nemoca1004@gmail.com", 14, 40);
+      doc.text("Dirección: Calle 45 #35-36, Barrio Líbano, Santa Marta", 14, 46);
+
+      // Cliente
+      doc.text("Cliente: " + document.getElementById("cliente_nombre").value, 14, 58);
+      doc.text("NIT: " + document.getElementById("cliente_nit").value, 14, 64);
+      doc.text("Teléfono: " + document.getElementById("cliente_tel").value, 14, 70);
+      doc.text("Correo: " + document.getElementById("cliente_correo").value, 14, 76);
+
+      // Tabla
+      const filas = [];
+      document.querySelectorAll("#tablaItems tbody tr").forEach(fila => {
+        filas.push([
+          fila.children[0].children[0].value,
+          fila.children[1].children[0].value,
+          formatoCOP(fila.children[2].children[0].value),
+          fila.querySelector(".totalFila").innerText
+        ]);
+      });
+
+      doc.autoTable({
+        head: [["Cantidad", "Descripción", "Unitario", "Total"]],
+        body: filas,
+        startY: 90
+      });
+
+      let finalY = doc.lastAutoTable.finalY + 10;
+      doc.text("Subtotal: " + document.getElementById("subtotal").innerText, 14, finalY);
+      doc.text("IVA (" + document.getElementById("iva").value + "%):", 14, finalY + 6);
+      doc.text("Total: " + document.getElementById("total").innerText, 14, finalY + 12);
+
+      // Condiciones
+      doc.setFontSize(12);
+      doc.text("Condiciones:", 14, finalY + 24);
+      doc.setFontSize(10);
+      doc.text(doc.splitTextToSize(document.getElementById("condiciones").value, 180), 14, finalY + 30);
+
+      doc.save("cotizacion_nemoc.pdf");
+    }
+  </script>
+</body>
+</html>
